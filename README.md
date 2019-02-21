@@ -2,6 +2,12 @@
 
 This is wrapper command to exec a command with ENV vars that are fetched from Amazon SSM Parameter Store.
 
+## Installation
+
+```
+go get github.com/joker1007/prmstore-exec/cmd/prmstore-exec
+```
+
 ## Usage
 
 Saved Parameters:
