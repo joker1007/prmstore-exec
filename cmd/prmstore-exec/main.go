@@ -5,5 +5,5 @@ import (
 )
 
 func main() {
-	prmstoreExec.Run()
+	prmexec.Run()
 }

@@ -1,4 +1,4 @@
-package prmstoreExec
+package prmexec
 
 import (
 	"fmt"
