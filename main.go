@@ -2,15 +2,18 @@ package main
 
 import (
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/ssm"
-	"github.com/jessevdk/go-flags"
 	"os"
 	"os/exec"
 	"strings"
 	"syscall"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/ssm"
+	"github.com/jessevdk/go-flags"
 )
+
+const version = "0.1.0"
 
 var opts struct {
 	Path             string            `long:"path" description:"path for ssm:GetParametersByPath" required:"true" value-name:"PATH"`
@@ -19,9 +22,15 @@ var opts struct {
 	NoUppercase      bool              `long:"no-uppercase" description:"No convert parameter name to uppercase"`
 	CleanEnv         bool              `long:"with-clean-env" description:"No takeover OS Environment Variables"`
 	ReplaceMap       map[string]string `long:"replace-map" description:"Pattern Table for parameter name replacement" value-name:"OLD_SUBSTR:NEW_SUBSTR"`
+	Version          func()            `long:"version" description:"Show version"`
 }
 
 func main() {
+	opts.Version = func() {
+		fmt.Printf("v%s\n", version)
+		os.Exit(0)
+	}
+
 	var parserOpts interface{}
 	optionParser := flags.NewParser(parserOpts, flags.Default)
 	optionParser.AddGroup("Options", "", &opts)
