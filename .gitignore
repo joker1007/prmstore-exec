@@ -1,2 +1,2 @@
 .envrc
-prmstore-exec
+cmd/prmstore-exec/prmstore-exec
