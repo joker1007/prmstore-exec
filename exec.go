@@ -20,6 +20,7 @@ var opts struct {
 	NoUppercase      bool              `long:"no-uppercase" description:"No convert parameter name to uppercase"`
 	CleanEnv         bool              `long:"with-clean-env" description:"No takeover OS Environment Variables"`
 	ReplaceMap       map[string]string `long:"replace-map" description:"Pattern Table for parameter name replacement" value-name:"OLD_SUBSTR:NEW_SUBSTR"`
+	Region           string            `long:"region" description:"AWS region" value-name:"REGION"`
 	Version          func()            `long:"version" description:"Show version"`
 }
 
@@ -70,7 +71,9 @@ func Run() {
 }
 
 func getParameters() ([]*ssm.Parameter, error) {
-	sess := session.Must(session.NewSession())
+	sess := session.Must(session.NewSession(&aws.Config{
+		Region: aws.String(opts.Region),
+	}))
 	ssmSvc := ssm.New(sess)
 	input := &ssm.GetParametersByPathInput{
 		Path:           aws.String(opts.Path),
