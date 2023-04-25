@@ -18,8 +18,19 @@ Saved Parameters:
 /staging/database/password = "password"
 ```
 
-```sh
+```console
 $ prmstore-exec --path /staging --with-clean-env -- env
+DATABASE_HOST=database.mydomain.local
+DATABASE_USER=dbuser
+DATABASE_PASSWORD=password
+```
+
+```console
+$ prmstore-exec \
+    --secret DATABASE_HOST:/staging/database/host \
+    --secret DATABASE_USERNAME:/staging/database/user \
+    --secret DATABASE_PASSWORD:/staging/database/password \
+    -- env
 DATABASE_HOST=database.mydomain.local
 DATABASE_USER=dbuser
 DATABASE_PASSWORD=password
@@ -40,6 +51,10 @@ Options:
       --no-uppercase                         No convert parameter name to uppercase
       --with-clean-env                       No takeover OS Environment Variables
       --replace-map=OLD_SUBSTR:NEW_SUBSTR    Pattern Table for parameter name replacement
+      --region=REGION                        AWS region
+  -s, --secret=NAME:VALUE_FROM               Map of environment name and parameter name.
+                                             Conflicts with --path option
+      --version                              Show version
 
 Help Options:
   -h, --help                                 Show this help message
