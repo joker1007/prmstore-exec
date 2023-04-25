@@ -21,7 +21,7 @@ var opts struct {
 	CleanEnv         bool              `long:"with-clean-env" description:"No takeover OS Environment Variables"`
 	ReplaceMap       map[string]string `long:"replace-map" description:"Pattern Table for parameter name replacement" value-name:"OLD_SUBSTR:NEW_SUBSTR"`
 	Region           string            `long:"region" description:"AWS region" value-name:"REGION"`
-	Secrets          map[string]string `long:"secret" short:"s" description:"Map of environment name and parameter name.\nConflicts with --path option" value-name:"NAME:VALUE_FROM"`
+	SetEnv           map[string]string `long:"setenv" short:"s" description:"Map of environment name and parameter name.\nConflicts with --path option" value-name:"NAME:VALUE_FROM"`
 	Version          func()            `long:"version" description:"Show version"`
 }
 
@@ -51,22 +51,22 @@ func Run() {
 		}
 	}
 
-	if len(opts.Path) == 0 && len(opts.Secrets) == 0 {
-		panic(fmt.Errorf("require either --path or --secrets"))
+	if len(opts.Path) == 0 && len(opts.SetEnv) == 0 {
+		panic(fmt.Errorf("require either --path or --setenv"))
 	}
-	if len(opts.Path) > 0 && len(opts.Secrets) > 0 {
-		panic(fmt.Errorf("conflict --path and --secrets. use either --path or --secrets"))
+	if len(opts.Path) > 0 && len(opts.SetEnv) > 0 {
+		panic(fmt.Errorf("conflict --path and --setenv. use either --path or --setenv"))
 	}
-	if len(opts.Secrets) > 0 && (opts.NoRecursive || opts.NoOmitPathPrefix || opts.NoUppercase || len(opts.ReplaceMap) > 0) {
-		panic(fmt.Errorf("you cannot use --no-recursive, --no-omit-path-prefix, --no-uppercase, or --replace-map if use --secrets"))
+	if len(opts.SetEnv) > 0 && (opts.NoRecursive || opts.NoOmitPathPrefix || opts.NoUppercase || len(opts.ReplaceMap) > 0) {
+		panic(fmt.Errorf("you cannot use --no-recursive, --no-omit-path-prefix, --no-uppercase, or --replace-map if use --setenv"))
 	}
 
 	var kvs map[string]string
 	if len(opts.Path) > 0 {
 		kvs = processPath()
 	}
-	if len(opts.Secrets) > 0 {
-		kvs = processSecrets()
+	if len(opts.SetEnv) > 0 {
+		kvs = processSetEnv()
 	}
 
 	env := buildEnv(kvs)
@@ -91,7 +91,7 @@ func processPath() map[string]string {
 	return buildReplacedKeyValues(params)
 }
 
-func processSecrets() map[string]string {
+func processSetEnv() map[string]string {
 	params, err := getParameters()
 	if err != nil {
 		panic(err)
@@ -107,12 +107,12 @@ func getParameters() ([]*ssm.Parameter, error) {
 	ssmSvc := ssm.New(sess)
 
 	names := []string{}
-	for _, name := range opts.Secrets {
+	for _, name := range opts.SetEnv {
 		names = append(names, name)
 	}
 
 	input := &ssm.GetParametersInput{
-		Names: aws.StringSlice(names),
+		Names:          aws.StringSlice(names),
 		WithDecryption: aws.Bool(true),
 	}
 
@@ -122,8 +122,8 @@ func getParameters() ([]*ssm.Parameter, error) {
 
 func buildKeyValues(params []*ssm.Parameter) map[string]string {
 	keyValues := make(map[string]string, len(params))
-	nameMap := make(map[string]string, len(opts.Secrets))
-	for envName, name := range opts.Secrets {
+	nameMap := make(map[string]string, len(opts.SetEnv))
+	for envName, name := range opts.SetEnv {
 		nameMap[name] = envName
 	}
 	for _, param := range params {
