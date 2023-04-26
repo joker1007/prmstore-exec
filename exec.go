@@ -14,13 +14,14 @@ import (
 )
 
 var opts struct {
-	Path             string            `long:"path" description:"path for ssm:GetParametersByPath" required:"true" value-name:"PATH"`
+	Path             string            `long:"path" description:"path for ssm:GetParametersByPath" value-name:"PATH"`
 	NoRecursive      bool              `long:"no-recursive" description:"get parameters not recuvsively"`
 	NoOmitPathPrefix bool              `long:"no-omit-path-prefix" description:"No omit path prefix from parameter name"`
 	NoUppercase      bool              `long:"no-uppercase" description:"No convert parameter name to uppercase"`
 	CleanEnv         bool              `long:"with-clean-env" description:"No takeover OS Environment Variables"`
 	ReplaceMap       map[string]string `long:"replace-map" description:"Pattern Table for parameter name replacement" value-name:"OLD_SUBSTR:NEW_SUBSTR"`
 	Region           string            `long:"region" description:"AWS region" value-name:"REGION"`
+	SetEnv           map[string]string `long:"setenv" short:"s" description:"Map of environment name and parameter name.\nConflicts with --path option" value-name:"NAME:VALUE_FROM"`
 	Version          func()            `long:"version" description:"Show version"`
 }
 
@@ -50,12 +51,23 @@ func Run() {
 		}
 	}
 
-	params, err := getParameters()
-	if err != nil {
-		panic(err)
+	if len(opts.Path) == 0 && len(opts.SetEnv) == 0 {
+		panic(fmt.Errorf("require either --path or --setenv"))
+	}
+	if len(opts.Path) > 0 && len(opts.SetEnv) > 0 {
+		panic(fmt.Errorf("conflict --path and --setenv. use either --path or --setenv"))
+	}
+	if len(opts.SetEnv) > 0 && (opts.NoRecursive || opts.NoOmitPathPrefix || opts.NoUppercase || len(opts.ReplaceMap) > 0) {
+		panic(fmt.Errorf("you cannot use --no-recursive, --no-omit-path-prefix, --no-uppercase, or --replace-map if use --setenv"))
 	}
 
-	kvs := buildReplacedKeyValues(params)
+	var kvs map[string]string
+	if len(opts.Path) > 0 {
+		kvs = processPath()
+	}
+	if len(opts.SetEnv) > 0 {
+		kvs = processSetEnv()
+	}
 
 	env := buildEnv(kvs)
 
@@ -70,7 +82,57 @@ func Run() {
 	}
 }
 
+func processPath() map[string]string {
+	params, err := getParametersByPath()
+	if err != nil {
+		panic(err)
+	}
+
+	return buildReplacedKeyValues(params)
+}
+
+func processSetEnv() map[string]string {
+	params, err := getParameters()
+	if err != nil {
+		panic(err)
+	}
+
+	return buildKeyValues(params)
+}
+
 func getParameters() ([]*ssm.Parameter, error) {
+	sess := session.Must(session.NewSession(&aws.Config{
+		Region: aws.String(opts.Region),
+	}))
+	ssmSvc := ssm.New(sess)
+
+	names := []string{}
+	for _, name := range opts.SetEnv {
+		names = append(names, name)
+	}
+
+	input := &ssm.GetParametersInput{
+		Names:          aws.StringSlice(names),
+		WithDecryption: aws.Bool(true),
+	}
+
+	output, err := ssmSvc.GetParameters(input)
+	return output.Parameters, err
+}
+
+func buildKeyValues(params []*ssm.Parameter) map[string]string {
+	keyValues := make(map[string]string, len(params))
+	nameMap := make(map[string]string, len(opts.SetEnv))
+	for envName, name := range opts.SetEnv {
+		nameMap[name] = envName
+	}
+	for _, param := range params {
+		keyValues[nameMap[*param.Name]] = *param.Value
+	}
+	return keyValues
+}
+
+func getParametersByPath() ([]*ssm.Parameter, error) {
 	sess := session.Must(session.NewSession(&aws.Config{
 		Region: aws.String(opts.Region),
 	}))
